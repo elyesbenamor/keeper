@@ -4,100 +4,66 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-
+	"github.com/keeper/internal/keychain"
 	"github.com/keeper/internal/providers"
 	"github.com/keeper/internal/providers/local"
+	"github.com/spf13/cobra"
 )
 
 var (
-	cfgFile  string
-	provider string
+	configDir string
+	provider  providers.Provider
 )
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "kpr",
-	Short: "A secure secret manager",
-	Long: `Keeper is a secure secret manager that helps you store and manage
-sensitive information like API keys, passwords, and other secrets.`,
+	Short: "A secure secret management tool",
+	Long: `Keeper is a command-line tool for managing secrets securely.
+It supports storing secrets with metadata, schemas, and versioning.`,
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		// Create config directory if it doesn't exist
+		if err := os.MkdirAll(configDir, 0700); err != nil {
+			return fmt.Errorf("failed to create config directory: %w", err)
+		}
+
+		// Initialize keychain
+		kc, err := keychain.New()
+		if err != nil {
+			return fmt.Errorf("failed to initialize keychain: %w", err)
+		}
+
+		// Initialize provider
+		p, err := local.New(configDir, kc)
+		if err != nil {
+			return fmt.Errorf("failed to initialize provider: %w", err)
+		}
+
+		// Initialize provider
+		if err := p.Initialize(cmd.Context()); err != nil {
+			return fmt.Errorf("failed to initialize provider: %w", err)
+		}
+
+		provider = p
+		return nil
+	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		fmt.Println(err)
 		os.Exit(1)
 	}
 }
 
 func init() {
-	cobra.OnInitialize(initConfig)
-
-	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "Config file (default is $HOME/.keeper/config.yaml)")
-	rootCmd.PersistentFlags().StringVarP(&provider, "provider", "p", "local", "Secret provider to use (local, vault, aws, azure)")
-}
-
-// initConfig reads in config file and ENV variables if set.
-func initConfig() {
-	if cfgFile != "" {
-		// Use config file from the flag.
-		viper.SetConfigFile(cfgFile)
-	} else {
-		// Find home directory.
-		home, err := os.UserHomeDir()
-		cobra.CheckErr(err)
-
-		// Search config in home directory with name ".keeper" (without extension).
-		viper.AddConfigPath(filepath.Join(home, ".keeper"))
-		viper.SetConfigType("yaml")
-		viper.SetConfigName("config")
-	}
-
-	viper.AutomaticEnv() // read in environment variables that match
-
-	// If a config file is found, read it in.
-	if err := viper.ReadInConfig(); err == nil {
-		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
-	}
-}
-
-// getProvider returns the configured secret provider
-func getProvider() (providers.Provider, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get home directory: %w", err)
+		fmt.Println(err)
+		os.Exit(1)
 	}
 
-	switch provider {
-	case "local":
-		provider, err := local.New(filepath.Join(home, ".keeper"))
-		if err != nil {
-			return nil, fmt.Errorf("failed to create local provider: %w", err)
-		}
-		return provider, nil
-	default:
-		return nil, fmt.Errorf("unsupported provider: %s", provider)
-	}
-}
-
-// parseMetadata parses metadata string into a map
-func parseMetadata(metadata string) map[string]string {
-	result := make(map[string]string)
-	if metadata == "" {
-		return result
-	}
-
-	pairs := strings.Split(metadata, ",")
-	for _, pair := range pairs {
-		kv := strings.Split(pair, "=")
-		if len(kv) == 2 {
-			result[strings.TrimSpace(kv[0])] = strings.TrimSpace(kv[1])
-		}
-	}
-
-	return result
+	rootCmd.PersistentFlags().StringVar(&configDir, "config", filepath.Join(home, ".keeper"), "config directory")
 }

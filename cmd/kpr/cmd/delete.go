@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -9,21 +8,15 @@ import (
 
 // deleteCmd represents the delete command
 var deleteCmd = &cobra.Command{
-	Use:   "delete [key]",
-	Short: "Delete a secret by key",
+	Use:   "delete [name]",
+	Short: "Delete a secret",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		provider, err := getProvider()
-		if err != nil {
-			return err
-		}
-		defer provider.Close()
-
-		if err := provider.DeleteSecret(context.Background(), args[0]); err != nil {
+		name := args[0]
+		if err := provider.DeleteSecret(cmd.Context(), name); err != nil {
 			return fmt.Errorf("failed to delete secret: %w", err)
 		}
-
-		fmt.Printf("Secret '%s' deleted successfully\n", args[0])
+		fmt.Printf("Successfully deleted secret %s\n", name)
 		return nil
 	},
 }

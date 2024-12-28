@@ -1,0 +1,32 @@
+{
+    "type": "object",
+    "required": ["key", "endpoint"],
+    "properties": {
+        "key": {
+            "type": "string",
+            "minLength": 16
+        },
+        "endpoint": {
+            "type": "string",
+            "format": "uri"
+        },
+        "version": {
+            "type": "string",
+            "pattern": "^v\\d+(\\.\\d+)?(\\.\\d+)?$"
+        },
+        "rateLimit": {
+            "type": "object",
+            "properties": {
+                "requests": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "period": {
+                    "type": "string",
+                    "enum": ["second", "minute", "hour", "day"]
+                }
+            },
+            "required": ["requests", "period"]
+        }
+    }
+}

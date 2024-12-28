@@ -1,0 +1,16 @@
+{
+  "name": "api_key",
+  "description": "API Key Schema",
+  "version": "1.0",
+  "ttl": "720h",
+  "fields": {
+    "value": {
+      "type": "string",
+      "required": true,
+      "pattern": "^[A-Za-z0-9]{32}$",
+      "metadata": {
+        "description": "API Key value"
+      }
+    }
+  }
+}

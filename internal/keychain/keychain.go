@@ -16,20 +16,32 @@ const (
 	keyLength     = 32 // 256 bits
 )
 
-// Keychain manages encryption keys in the system keychain
-type Keychain struct {
+// Keychain is the interface for secure key storage
+type Keychain interface {
+	// Get retrieves a key by name
+	Get(name string) ([]byte, error)
+
+	// Set stores a key with the given name
+	Set(name string, key []byte) error
+
+	// Delete removes a key by name
+	Delete(name string) error
+}
+
+// KeychainImpl manages encryption keys in the system keychain
+type KeychainImpl struct {
 	serviceName string
 }
 
 // New creates a new Keychain instance
-func New() (*Keychain, error) {
-	return &Keychain{
+func New() (*KeychainImpl, error) {
+	return &KeychainImpl{
 		serviceName: "keeper",
 	}, nil
 }
 
 // GenerateKey generates a new encryption key and stores it in the keychain
-func (k *Keychain) GenerateKey(name string) error {
+func (k *KeychainImpl) GenerateKey(name string) error {
 	// Generate random key
 	key := make([]byte, keyLength)
 	if _, err := io.ReadFull(rand.Reader, key); err != nil {
@@ -47,7 +59,7 @@ func (k *Keychain) GenerateKey(name string) error {
 }
 
 // GetKey retrieves a key from the keychain
-func (k *Keychain) GetKey(name string) ([]byte, error) {
+func (k *KeychainImpl) GetKey(name string) ([]byte, error) {
 	encoded, err := keyring.Get(k.serviceName, name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get key from keychain: %w", err)
@@ -62,7 +74,7 @@ func (k *Keychain) GetKey(name string) ([]byte, error) {
 }
 
 // DeleteKey removes a key from the keychain
-func (k *Keychain) DeleteKey(name string) error {
+func (k *KeychainImpl) DeleteKey(name string) error {
 	err := keyring.Delete(k.serviceName, name)
 	if err != nil {
 		return fmt.Errorf("failed to delete key from keychain: %w", err)
@@ -72,7 +84,7 @@ func (k *Keychain) DeleteKey(name string) error {
 }
 
 // RenameKey renames a key in the keychain
-func (k *Keychain) RenameKey(oldName, newName string) error {
+func (k *KeychainImpl) RenameKey(oldName, newName string) error {
 	// Get the old key
 	key, err := k.GetKey(oldName)
 	if err != nil {
@@ -94,7 +106,7 @@ func (k *Keychain) RenameKey(oldName, newName string) error {
 }
 
 // KeyExists checks if a key exists in the keychain
-func (k *Keychain) KeyExists(name string) (bool, error) {
+func (k *KeychainImpl) KeyExists(name string) (bool, error) {
 	_, err := keyring.Get(k.serviceName, name)
 	if err == keyring.ErrNotFound {
 		return false, nil
@@ -106,7 +118,7 @@ func (k *Keychain) KeyExists(name string) (bool, error) {
 }
 
 // Encrypt encrypts data using the specified key
-func (k *Keychain) Encrypt(keyName string, data []byte) ([]byte, error) {
+func (k *KeychainImpl) Encrypt(keyName string, data []byte) ([]byte, error) {
 	key, err := k.GetKey(keyName)
 	if err != nil {
 		return nil, err
@@ -132,7 +144,7 @@ func (k *Keychain) Encrypt(keyName string, data []byte) ([]byte, error) {
 }
 
 // Decrypt decrypts data using the specified key
-func (k *Keychain) Decrypt(keyName string, data []byte) ([]byte, error) {
+func (k *KeychainImpl) Decrypt(keyName string, data []byte) ([]byte, error) {
 	key, err := k.GetKey(keyName)
 	if err != nil {
 		return nil, err
@@ -160,4 +172,20 @@ func (k *Keychain) Decrypt(keyName string, data []byte) ([]byte, error) {
 	}
 
 	return plaintext, nil
+}
+
+// Get implements the Keychain interface
+func (k *KeychainImpl) Get(name string) ([]byte, error) {
+	return k.GetKey(name)
+}
+
+// Set implements the Keychain interface
+func (k *KeychainImpl) Set(name string, key []byte) error {
+	encoded := base64.StdEncoding.EncodeToString(key)
+	return keyring.Set(k.serviceName, name, encoded)
+}
+
+// Delete implements the Keychain interface
+func (k *KeychainImpl) Delete(name string) error {
+	return k.DeleteKey(name)
 }

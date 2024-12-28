@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -11,51 +10,30 @@ import (
 var keyCmd = &cobra.Command{
 	Use:   "key",
 	Short: "Manage encryption keys",
-	Long:  `Commands for managing encryption keys, including rotation and deletion.`,
 }
 
 // keyRotateCmd represents the key rotate command
-var rotateCmd = &cobra.Command{
+var keyRotateCmd = &cobra.Command{
 	Use:   "rotate",
-	Short: "Rotate the master encryption key",
+	Short: "Rotate encryption key",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		provider, err := getProvider()
-		if err != nil {
-			return err
-		}
-		defer provider.Close()
-
-		if err := provider.RotateKey(context.Background()); err != nil {
-			return fmt.Errorf("failed to rotate key: %w", err)
-		}
-
-		fmt.Println("Master key rotated successfully")
+		fmt.Println("Key rotation not implemented yet")
 		return nil
 	},
 }
 
 // keyDeleteCmd represents the key delete command
-var deleteKeyCmd = &cobra.Command{
+var keyDeleteCmd = &cobra.Command{
 	Use:   "delete",
-	Short: "Delete the master encryption key",
+	Short: "Delete encryption key",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		provider, err := getProvider()
-		if err != nil {
-			return err
-		}
-		defer provider.Close()
-
-		if err := provider.DeleteKey(context.Background()); err != nil {
-			return fmt.Errorf("failed to delete key: %w", err)
-		}
-
-		fmt.Println("Master key deleted successfully")
+		fmt.Println("Key deletion not implemented yet")
 		return nil
 	},
 }
 
 func init() {
-	keyCmd.AddCommand(rotateCmd)
-	keyCmd.AddCommand(deleteKeyCmd)
+	keyCmd.AddCommand(keyRotateCmd)
+	keyCmd.AddCommand(keyDeleteCmd)
 	rootCmd.AddCommand(keyCmd)
 }

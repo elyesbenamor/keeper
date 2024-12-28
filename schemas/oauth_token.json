@@ -1,0 +1,25 @@
+{
+  "name": "oauth_token",
+  "description": "OAuth Token Schema",
+  "version": "1.0",
+  "ttl": "1h",
+  "fields": {
+    "access_token": {
+      "type": "string",
+      "required": true
+    },
+    "refresh_token": {
+      "type": "string",
+      "required": true
+    },
+    "token_type": {
+      "type": "string",
+      "required": true,
+      "enum": ["Bearer", "MAC"]
+    },
+    "expires_in": {
+      "type": "number",
+      "required": true
+    }
+  }
+}

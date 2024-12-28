@@ -2,73 +2,83 @@ package providers
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"time"
 )
 
-// Secret represents a secret value with metadata and versioning
+// ErrSecretNotFound is returned when a secret is not found
+var ErrSecretNotFound = errors.New("secret not found")
+
+// Secret represents a secret with metadata
 type Secret struct {
-	Value       string            `json:"value"`
-	Metadata    map[string]string `json:"metadata"`
-	Created     time.Time         `json:"created"`
-	Updated     time.Time         `json:"updated"`
-	Version     int              `json:"version"`
-	PrevVersion *Secret          `json:"previous_version,omitempty"`
+	Name      string            `json:"name"`
+	Value     string            `json:"value"`
+	Metadata  map[string]string `json:"metadata,omitempty"`
+	Tags      []string          `json:"tags,omitempty"`
+	Schema    string            `json:"schema,omitempty"`
+	CreatedAt time.Time         `json:"created_at"`
+	UpdatedAt time.Time         `json:"updated_at"`
+}
+
+// SearchOptions represents options for searching secrets
+type SearchOptions struct {
+	Schema        string    `json:"schema,omitempty"`
+	Tags         []string  `json:"tags,omitempty"`
+	CreatedAfter time.Time `json:"created_after,omitempty"`
+}
+
+// Provider defines the interface for secret management
+type Provider interface {
+	// Initialize initializes the provider
+	Initialize(ctx context.Context) error
+
+	// Close closes the provider
+	Close() error
+
+	// GetSecret retrieves a secret by name
+	GetSecret(ctx context.Context, name string) (*Secret, error)
+
+	// SetSecret stores a secret
+	SetSecret(ctx context.Context, secret *Secret) error
+
+	// DeleteSecret deletes a secret by name
+	DeleteSecret(ctx context.Context, name string) error
+
+	// ListSecrets lists all secrets
+	ListSecrets(ctx context.Context) ([]*Secret, error)
+
+	// SearchSecrets searches for secrets based on criteria
+	SearchSecrets(ctx context.Context, opts SearchOptions) ([]*Secret, error)
+
+	// SetBackupDir sets the backup directory for the provider
+	SetBackupDir(dir string) error
+
+	// Backup creates a backup of all secrets
+	Backup(ctx context.Context) error
+
+	// Restore restores secrets from a backup
+	Restore(ctx context.Context) error
 }
 
 // Validate checks if the secret is valid
 func (s *Secret) Validate() error {
+	if s.Name == "" {
+		return errors.New("secret name cannot be empty")
+	}
 	if s.Value == "" {
-		return fmt.Errorf("secret value cannot be empty")
-	}
-	if s.Metadata == nil {
-		s.Metadata = make(map[string]string)
-	}
-	if s.Created.IsZero() {
-		s.Created = time.Now()
-	}
-	if s.Updated.IsZero() {
-		s.Updated = time.Now()
-	}
-	if s.Version == 0 {
-		s.Version = 1
+		return errors.New("secret value cannot be empty")
 	}
 	return nil
 }
 
-// Provider is the interface that all secret providers must implement
-type Provider interface {
-	// Secret Management
-	GetSecret(ctx context.Context, key string) (*Secret, error)
-	SetSecret(ctx context.Context, key, value string, metadata map[string]string) error
-	DeleteSecret(ctx context.Context, key string) error
-	ListSecrets(ctx context.Context, prefix string) ([]string, error)
-	
-	// Version Management
-	GetSecretVersion(ctx context.Context, key string, version int) (*Secret, error)
-	ListSecretVersions(ctx context.Context, key string) ([]int, error)
-	RollbackSecret(ctx context.Context, key string, version int) error
-	
-	// Search and Metadata
-	SearchSecrets(ctx context.Context, query map[string]string) ([]*Secret, error)
-	UpdateMetadata(ctx context.Context, key string, metadata map[string]string) error
-	
-	// Key Management
-	RotateKey(ctx context.Context) error
-	DeleteKey(ctx context.Context) error
-	
-	// Cleanup and Maintenance
-	CleanupInvalidSecrets(ctx context.Context) error
-	
-	Close() error
-}
-
-// SearchOptions defines options for searching secrets
-type SearchOptions struct {
-	Metadata    map[string]string `json:"metadata"`
-	SortBy      string           `json:"sort_by"`
-	SortDesc    bool             `json:"sort_desc"`
-	MaxResults  int              `json:"max_results"`
-	IncludeKeys []string         `json:"include_keys"`
-	ExcludeKeys []string         `json:"exclude_keys"`
+// NewSecret creates a new secret with the given name and value
+func NewSecret(name, value string) *Secret {
+	now := time.Now()
+	return &Secret{
+		Name:      name,
+		Value:     value,
+		Metadata:  make(map[string]string),
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
 }

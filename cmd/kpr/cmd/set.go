@@ -1,51 +1,65 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
+	"github.com/keeper/internal/providers"
 	"github.com/spf13/cobra"
 )
 
 var (
-	metadata string
+	tags     []string
+	schema   string
+	metadata []string
 )
 
-func init() {
-	setCmd.Flags().StringVar(&metadata, "metadata", "", "Metadata key-value pairs (format: key1=value1,key2=value2)")
-	rootCmd.AddCommand(setCmd)
-}
-
 var setCmd = &cobra.Command{
-	Use:   "set [key] [value]",
-	Short: "Set a secret value",
+	Use:   "set [name] [value]",
+	Short: "Set a secret",
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		provider, err := getProvider()
-		if err != nil {
-			return err
-		}
-		defer provider.Close()
+		name := args[0]
+		value := args[1]
 
-		// Parse metadata
-		metadataMap := make(map[string]string)
-		if metadata != "" {
-			pairs := strings.Split(metadata, ",")
-			for _, pair := range pairs {
-				kv := strings.SplitN(pair, "=", 2)
-				if len(kv) != 2 {
-					return fmt.Errorf("invalid metadata format: %s", pair)
+		// Create secret
+		secret := providers.NewSecret(name, value)
+
+		// Add tags
+		if len(tags) > 0 {
+			secret.Tags = tags
+		}
+
+		// Add schema
+		if schema != "" {
+			secret.Schema = schema
+		}
+
+		// Add metadata
+		if len(metadata) > 0 {
+			secret.Metadata = make(map[string]string)
+			for _, m := range metadata {
+				parts := strings.SplitN(m, "=", 2)
+				if len(parts) != 2 {
+					return fmt.Errorf("invalid metadata format: %s (expected key=value)", m)
 				}
-				metadataMap[strings.TrimSpace(kv[0])] = strings.TrimSpace(kv[1])
+				secret.Metadata[parts[0]] = parts[1]
 			}
 		}
 
-		if err := provider.SetSecret(context.Background(), args[0], args[1], metadataMap); err != nil {
+		// Set secret
+		if err := provider.SetSecret(cmd.Context(), secret); err != nil {
 			return fmt.Errorf("failed to set secret: %w", err)
 		}
 
-		fmt.Printf("Secret '%s' set successfully\n", args[0])
+		fmt.Printf("Successfully set secret %s\n", name)
 		return nil
 	},
+}
+
+func init() {
+	setCmd.Flags().StringSliceVar(&tags, "tags", nil, "Tags for the secret (comma-separated)")
+	setCmd.Flags().StringVar(&schema, "schema", "", "Schema for the secret")
+	setCmd.Flags().StringSliceVar(&metadata, "metadata", nil, "Metadata for the secret (comma-separated key=value pairs)")
+	rootCmd.AddCommand(setCmd)
 }
